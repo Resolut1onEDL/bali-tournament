@@ -40,7 +40,10 @@ export default function AdminPage() {
     if (mounted) saveTournamentState(state);
   }, [state, mounted]);
 
-  const hasResolut1on = state.players.some(p => p.isResolut1on);
+  // Reserves are registered but stay out of every round until called up
+  const activePlayers = state.players.filter(p => !p.isReserve);
+  const reservePlayers = state.players.filter(p => p.isReserve);
+  const hasResolut1on = activePlayers.some(p => p.isResolut1on);
   const regularRounds = state.rounds.filter(r => !r.isFinal);
   const hasFinal = state.rounds.some(r => r.isFinal);
 
@@ -69,10 +72,10 @@ export default function AdminPage() {
 
   // Shuffle — single round
   const handleGenerateRound = useCallback(() => {
-    if (state.players.length < MIN_PLAYERS || !hasResolut1on) return;
+    if (activePlayers.length < MIN_PLAYERS || !hasResolut1on) return;
     if (regularRounds.length >= 4) return;
 
-    const round = generateRound(state.players, regularRounds, regularRounds.length + 1);
+    const round = generateRound(activePlayers, regularRounds, regularRounds.length + 1);
     const newRounds = [...state.rounds.filter(r => !r.isFinal), round];
     setState(prev => ({
       ...prev,
@@ -80,27 +83,27 @@ export default function AdminPage() {
       currentRoundIndex: newRounds.length - 1,
       isLocked: true,
     }));
-  }, [state.players, state.rounds, regularRounds, hasResolut1on]);
+  }, [activePlayers, state.rounds, regularRounds, hasResolut1on]);
 
   // Shuffle — all 4 regular rounds
   const handleGenerateAllRounds = useCallback(() => {
-    if (state.players.length < MIN_PLAYERS || !hasResolut1on) return;
+    if (activePlayers.length < MIN_PLAYERS || !hasResolut1on) return;
 
-    const allRounds = generateAllRegularRounds(state.players, []);
+    const allRounds = generateAllRegularRounds(activePlayers, []);
     setState(prev => ({
       ...prev,
       rounds: allRounds,
       currentRoundIndex: allRounds.length - 1,
       isLocked: true,
     }));
-  }, [state.players, hasResolut1on]);
+  }, [activePlayers, hasResolut1on]);
 
   // Final round
   const handleGenerateFinal = useCallback(() => {
     if (state.mvpAllStarIds.length !== 5) return;
 
     const finalRound = generateFinalRound(
-      state.players,
+      activePlayers,
       regularRounds,
       state.mvpAllStarIds,
       5,
@@ -112,7 +115,7 @@ export default function AdminPage() {
       rounds: newRounds,
       currentRoundIndex: newRounds.length - 1,
     }));
-  }, [state.players, state.mvpAllStarIds, state.rounds, regularRounds]);
+  }, [activePlayers, state.mvpAllStarIds, state.rounds, regularRounds]);
 
   // MVP toggle
   const handleToggleMvp = useCallback((id: string) => {
@@ -240,7 +243,7 @@ export default function AdminPage() {
         {/* Shuffle Tab */}
         <TabsContent value="shuffle" className="space-y-6">
           <ShuffleControls
-            players={state.players}
+            players={activePlayers}
             rounds={state.rounds}
             hasResolut1on={hasResolut1on}
             mvpAllStarIds={state.mvpAllStarIds}
@@ -253,7 +256,7 @@ export default function AdminPage() {
           {/* MVP All-Stars selector — show after 4 rounds, before final */}
           {regularRounds.length === 4 && !hasFinal && (
             <MvpSelector
-              players={state.players}
+              players={activePlayers}
               selectedIds={state.mvpAllStarIds}
               onToggle={handleToggleMvp}
             />
@@ -278,21 +281,22 @@ export default function AdminPage() {
             </>
           )}
 
-          {state.rounds.length === 0 && state.players.length >= MIN_PLAYERS && hasResolut1on && (
+          {state.rounds.length === 0 && activePlayers.length >= MIN_PLAYERS && hasResolut1on && (
             <div className="rounded-xl border border-white/[0.08] bg-white/[0.04] p-12 text-center">
               <Shuffle className="w-12 h-12 text-white/20 mx-auto mb-4" />
               <p className="text-white/40">
-                {state.players.length} players registered. Click &quot;Round 1&quot; to start.
+                {activePlayers.length} players in the roster
+                {reservePlayers.length > 0 && ` (+${reservePlayers.length} reserves)`}. Click &quot;Round 1&quot; to start.
               </p>
             </div>
           )}
 
-          {(state.players.length < MIN_PLAYERS || !hasResolut1on) && (
+          {(activePlayers.length < MIN_PLAYERS || !hasResolut1on) && (
             <div className="rounded-xl border border-white/[0.08] bg-white/[0.04] p-12 text-center">
               <Users className="w-12 h-12 text-white/20 mx-auto mb-4" />
               <p className="text-white/40">
-                {state.players.length < MIN_PLAYERS &&
-                  `Register ${MIN_PLAYERS - state.players.length} more players. `}
+                {activePlayers.length < MIN_PLAYERS &&
+                  `Register ${MIN_PLAYERS - activePlayers.length} more players. `}
                 {!hasResolut1on && 'Mark one player as Resolut1on.'}
               </p>
             </div>
@@ -311,7 +315,7 @@ export default function AdminPage() {
 
         {/* Standings Tab */}
         <TabsContent value="standings">
-          <Standings players={state.players} rounds={state.rounds} />
+          <Standings players={activePlayers} rounds={state.rounds} />
         </TabsContent>
 
         {/* Settings Tab */}

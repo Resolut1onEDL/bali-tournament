@@ -28,9 +28,12 @@ export function PlayerRegistration({
   const [mmr, setMmr] = useState(editingPlayer?.mmr?.toString() ?? '');
   const [positions, setPositions] = useState<Position[]>(editingPlayer?.positions ?? [1]);
   const [isResolut1on, setIsResolut1on] = useState(editingPlayer?.isResolut1on ?? false);
+  const [isReserve, setIsReserve] = useState(editingPlayer?.isReserve ?? false);
 
   const isEditing = !!editingPlayer;
-  const isFull = players.length >= MAX_PLAYERS && !isEditing;
+  const activeCount = players.filter(p => !p.isReserve).length;
+  // The cap applies to the playing roster; reserves can always be added
+  const isFull = activeCount >= MAX_PLAYERS && !isReserve && !isEditing;
 
   useEffect(() => {
     if (editingPlayer) {
@@ -38,11 +41,13 @@ export function PlayerRegistration({
       setMmr(editingPlayer.mmr.toString());
       setPositions(editingPlayer.positions);
       setIsResolut1on(editingPlayer.isResolut1on ?? false);
+      setIsReserve(editingPlayer.isReserve ?? false);
     } else {
       setName('');
       setMmr('');
       setPositions([1]);
       setIsResolut1on(false);
+      setIsReserve(false);
     }
   }, [editingPlayer]);
 
@@ -68,6 +73,7 @@ export function PlayerRegistration({
         mmr: mmrNum,
         positions,
         isResolut1on,
+        isReserve,
       });
     } else {
       onAddPlayer({
@@ -75,6 +81,7 @@ export function PlayerRegistration({
         mmr: mmrNum,
         positions,
         isResolut1on,
+        isReserve,
       });
     }
 
@@ -82,6 +89,7 @@ export function PlayerRegistration({
     setMmr('');
     setPositions([1]);
     setIsResolut1on(false);
+    setIsReserve(false);
   }
 
   function handleCancel() {
@@ -89,6 +97,7 @@ export function PlayerRegistration({
     setMmr('');
     setPositions([1]);
     setIsResolut1on(false);
+    setIsReserve(false);
     onCancelEdit();
   }
 
@@ -101,7 +110,8 @@ export function PlayerRegistration({
           {isEditing ? 'Edit Player' : 'Add Player'}
         </h3>
         <span className="text-sm text-white/50">
-          {players.length}/{TOTAL_PLAYERS} registered
+          {activeCount}/{TOTAL_PLAYERS} playing
+          {players.length - activeCount > 0 && ` · ${players.length - activeCount} reserve`}
         </span>
       </div>
 
@@ -188,6 +198,20 @@ export function PlayerRegistration({
         />
         <Label htmlFor="resolut1on" className="text-sm text-white/60 cursor-pointer">
           This is Resolut1on {hasResolut1on && !editingPlayer?.isResolut1on && '(already assigned)'}
+        </Label>
+
+        <span className="mx-2 text-white/15">|</span>
+
+        <input
+          type="checkbox"
+          id="reserve"
+          checked={isReserve}
+          onChange={e => setIsReserve(e.target.checked)}
+          disabled={isResolut1on}
+          className="accent-sky-500"
+        />
+        <Label htmlFor="reserve" className="text-sm text-white/60 cursor-pointer">
+          Reserve <span className="text-white/30">(not shuffled until called up)</span>
         </Label>
       </div>
     </form>

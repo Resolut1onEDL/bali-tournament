@@ -7,6 +7,7 @@ export interface Player {
   positions: Position[];
   assignedPosition?: Position;
   isResolut1on?: boolean;
+  isReserve?: boolean;   // registered but kept out of the shuffle until called up
 }
 
 export interface Team {
