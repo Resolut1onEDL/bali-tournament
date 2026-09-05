@@ -1,16 +1,16 @@
 import type { Position } from './types';
 
-export const TOTAL_PLAYERS = 15;
+export const TOTAL_PLAYERS = 20;
 export const TEAM_SIZE = 5;
-export const TEAMS_PER_ROUND = 2;
-export const MATCHES_PER_ROUND = 1;
+export const TEAMS_PER_ROUND = 4;
+export const MATCHES_PER_ROUND = 2;
 export const DEFAULT_TOTAL_ROUNDS = 6;
-export const TOTAL_PCS = 10;
-// 15 players, one 5v5 match per round — the rest sit the round out
-export const BENCH_SIZE = TOTAL_PLAYERS - TEAM_SIZE * TEAMS_PER_ROUND;
-// A match needs 10 players; anyone above that rotates through the bench,
-// so the tournament still runs if somebody does not show up.
-export const MIN_PLAYERS = TEAM_SIZE * TEAMS_PER_ROUND;
+export const TOTAL_PCS = 20;
+// One 5v5 match needs 10 players. With 20 the round runs two matches in
+// parallel and nobody sits; with fewer, the round runs a single match and
+// the rest rotate through the bench, so a no-show does not block the event.
+export const PLAYERS_PER_MATCH = TEAM_SIZE * 2;
+export const MIN_PLAYERS = PLAYERS_PER_MATCH;
 export const MAX_PLAYERS = 20;
 
 export const POSITION_LABELS: Record<Position, string> = {
@@ -54,6 +54,10 @@ export const PC_LAYOUT = {
   match1: {
     radiant: [1, 2, 3, 4, 5],
     dire: [6, 7, 8, 9, 10],
+  },
+  match2: {
+    radiant: [11, 12, 13, 14, 15],
+    dire: [16, 17, 18, 19, 20],
   },
 } as const;
 

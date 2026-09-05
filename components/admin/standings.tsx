@@ -22,20 +22,23 @@ function buildRows(players: Player[], rounds: Round[]): Row[] {
   );
 
   for (const round of rounds) {
-    const { match1 } = round;
-    const sides = [
-      { players: match1.team1.players, side: 'team1' as const },
-      { players: match1.team2.players, side: 'team2' as const },
-    ];
+    const matches = [round.match1, round.match2].filter(Boolean) as Round['match1'][];
 
-    for (const { players: teamPlayers, side } of sides) {
-      for (const p of teamPlayers) {
-        const row = rows.get(p.id);
-        if (!row) continue;
-        row.played++;
-        // Rounds with no winner recorded yet count as played, not as a win or a loss
-        if (match1.winner === side) row.wins++;
-        else if (match1.winner) row.losses++;
+    for (const match of matches) {
+      const sides = [
+        { players: match.team1.players, side: 'team1' as const },
+        { players: match.team2.players, side: 'team2' as const },
+      ];
+
+      for (const { players: teamPlayers, side } of sides) {
+        for (const p of teamPlayers) {
+          const row = rows.get(p.id);
+          if (!row) continue;
+          row.played++;
+          // Matches with no winner recorded yet count as played, not as a win or a loss
+          if (match.winner === side) row.wins++;
+          else if (match.winner) row.losses++;
+        }
       }
     }
 
@@ -62,7 +65,8 @@ export function Standings({ players, rounds }: Props) {
   }
 
   const rows = buildRows(players, rounds);
-  const decided = rounds.filter(r => r.match1.winner).length;
+  const allMatches = rounds.flatMap(r => [r.match1, r.match2].filter(Boolean) as Round['match1'][]);
+  const decided = allMatches.filter(m => m.winner).length;
 
   return (
     <div className="space-y-4">
@@ -72,8 +76,8 @@ export function Standings({ players, rounds }: Props) {
           <h3 className="text-lg font-semibold">Standings</h3>
         </div>
         <p className="text-sm text-white/50 mt-1">
-          One point per won match. Results recorded: {decided} / {rounds.length} rounds.
-          {decided < rounds.length && ' Mark a winner in the Shuffle tab to score a round.'}
+          One point per won match. Results recorded: {decided} / {allMatches.length} matches.
+          {decided < allMatches.length && ' Mark a winner in the Shuffle tab to score a match.'}
         </p>
       </div>
 

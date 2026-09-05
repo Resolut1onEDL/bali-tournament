@@ -8,7 +8,7 @@ import { Coffee } from 'lucide-react';
 interface Props {
   round: Round;
   players: Player[];
-  onSetWinner?: (winner: 'team1' | 'team2' | undefined) => void;
+  onSetWinner?: (match: 'match1' | 'match2', winner: 'team1' | 'team2' | undefined) => void;
 }
 
 export function RoundView({ round, players, onSetWinner }: Props) {
@@ -32,8 +32,21 @@ export function RoundView({ round, players, onSetWinner }: Props) {
         match={round.match1}
         matchLabel={round.isFinal ? 'Final Match' : "Resolut1on's Match"}
         pcRange="1–10"
-        onSetWinner={onSetWinner}
+        onSetWinner={onSetWinner && (winner => onSetWinner('match1', winner))}
       />
+
+      {round.match2 && (
+        <>
+          <Separator className="bg-white/[0.08]" />
+
+          <MatchDisplay
+            match={round.match2}
+            matchLabel="Parallel Match"
+            pcRange="11–20"
+            onSetWinner={onSetWinner && (winner => onSetWinner('match2', winner))}
+          />
+        </>
+      )}
 
       {benched.length > 0 && (
         <>

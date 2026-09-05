@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Resolut1on Showmatch — Bali 2026",
-  description: "Dota 2 showmatch for entrepreneurs. March 1, 2026 — Ubud, Bali.",
+  title: "Resolut1on Showmatch — Bali, Season 2",
+  description: "Dota 2 showmatch for entrepreneurs. September 6 — TimeHub, Ubud, Bali.",
 };
 
 export default function RootLayout({

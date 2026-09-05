@@ -55,7 +55,11 @@ export function ShuffleControls({
               ? 'Tournament complete — 4 rounds + final'
               : regularRounds.length === 4
               ? 'All 4 rounds done — select MVP All-Stars for final'
-              : `Round ${regularRounds.length} / 4 completed — ${players.length} players, ${players.length - MIN_PLAYERS} on the bench each round`
+              : `Round ${regularRounds.length} / 4 completed — ${players.length} players, ${
+                  players.length >= MIN_PLAYERS * 2
+                    ? 'two matches in parallel'
+                    : `${players.length - MIN_PLAYERS} on the bench each round`
+                }`
             }
           </p>
         </div>

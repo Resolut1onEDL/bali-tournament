@@ -136,12 +136,19 @@ export default function AdminPage() {
     }
   }, []);
 
-  const handleSetWinner = useCallback((roundId: string, winner: 'team1' | 'team2' | undefined) => {
+  const handleSetWinner = useCallback((
+    roundId: string,
+    match: 'match1' | 'match2',
+    winner: 'team1' | 'team2' | undefined,
+  ) => {
     setState(prev => ({
       ...prev,
-      rounds: prev.rounds.map(r =>
-        r.id === roundId ? { ...r, match1: { ...r.match1, winner } } : r
-      ),
+      rounds: prev.rounds.map(r => {
+        if (r.id !== roundId) return r;
+        const target = match === 'match1' ? r.match1 : r.match2;
+        if (!target) return r;
+        return { ...r, [match]: { ...target, winner } };
+      }),
     }));
   }, []);
 
@@ -182,8 +189,9 @@ export default function AdminPage() {
           <span className="text-white/60">Shuffle</span>
         </h1>
         <p className="text-white/40 text-sm mt-1">
-          {TOTAL_PLAYERS} players — 4 rounds + MVP All-Stars final. One 5v5 match per round,
-          Resolut1on gets new teammates each round, the rest sit out in rotation.
+          4 rounds + MVP All-Stars final. Resolut1on gets new teammates each round.
+          With {TOTAL_PLAYERS} players a round runs two matches in parallel and nobody sits;
+          with fewer, one match runs and the rest rotate through the bench.
         </p>
       </div>
 
@@ -262,8 +270,8 @@ export default function AdminPage() {
                 <RoundView
                   round={state.rounds[state.currentRoundIndex]}
                   players={state.players}
-                  onSetWinner={winner =>
-                    handleSetWinner(state.rounds[state.currentRoundIndex].id, winner)
+                  onSetWinner={(match, winner) =>
+                    handleSetWinner(state.rounds[state.currentRoundIndex].id, match, winner)
                   }
                 />
               )}

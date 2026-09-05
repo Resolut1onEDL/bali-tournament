@@ -1,5 +1,5 @@
 import type { Player, Team, Match, Round, PCAssignment, Position } from './types';
-import { PC_LAYOUT } from './constants';
+import { PC_LAYOUT, PLAYERS_PER_MATCH } from './constants';
 
 // ── Utilities ──
 
@@ -163,11 +163,68 @@ function benchPenalty(benched: Player[], benchCounts: Map<string, number>): numb
   return benched.reduce((sum, p) => sum + (benchCounts.get(p.id) ?? 0) * BENCH_REPEAT_PENALTY, 0);
 }
 
+// ── Balance 10 players into 2 teams of 5 ──
+// Tries many candidates and picks the most MMR-balanced split
+
+function balancedSplit(players: Player[]): [Player[], Player[]] {
+  if (players.length !== PLAYERS_PER_MATCH) {
+    // fallback: just split in half
+    return [players.slice(0, 5), players.slice(5)];
+  }
+
+  const CANDIDATES = 100;
+  let bestDiff = Infinity;
+  let bestA: Player[] = players.slice(0, 5);
+  let bestB: Player[] = players.slice(5);
+
+  for (let c = 0; c < CANDIDATES; c++) {
+    const shuffled = fisherYates(players);
+    const a = shuffled.slice(0, 5);
+    const b = shuffled.slice(5);
+    const diff = Math.abs(avgMMR(a) - avgMMR(b));
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      bestA = a;
+      bestB = b;
+    }
+  }
+
+  return [bestA, bestB];
+}
+
+// ── Split the players left over after Resolut1on's match ──
+// With 10+ left they play a parallel match and nobody sits; with fewer they
+// are the bench. Whoever has sat out most gets a seat in the parallel match first.
+
+function splitLeftover(
+  leftover: Player[],
+  benchCounts: Map<string, number>,
+): { match2?: Match; benched: Player[] } {
+  if (leftover.length < PLAYERS_PER_MATCH) {
+    return { benched: leftover };
+  }
+
+  const byBenchDesc = fisherYates(leftover).sort(
+    (a, b) => (benchCounts.get(b.id) ?? 0) - (benchCounts.get(a.id) ?? 0),
+  );
+  const playing = byBenchDesc.slice(0, PLAYERS_PER_MATCH);
+  const benched = byBenchDesc.slice(PLAYERS_PER_MATCH);
+
+  const [pA, pB] = balancedSplit(playing);
+  const match2 = makeMatch(
+    makeTeam('Team Alpha', assignPositionsToTeam(pA)),
+    makeTeam('Team Bravo', assignPositionsToTeam(pB)),
+  );
+
+  return { match2, benched };
+}
+
 // ══════════════════════════════════════════════════
 // MAIN: Generate a regular round (1-4)
 // Resolut1on gets 4 NEW teammates he hasn't played with yet.
 // Opponent team is balanced from 5 more players.
-// The remaining players sit this round out (bench), rotated fairly.
+// The remaining players play a parallel match (20 players) or sit this round
+// out (bench), rotated fairly.
 // ══════════════════════════════════════════════════
 
 export function generateRound(
@@ -238,9 +295,10 @@ export function generateRound(
     const opponentPlayers = assignPositionsToTeam(selectedOpponents);
     const opponentTeam = makeTeam('Opponents', opponentPlayers);
 
-    // Everyone not picked for the match sits this round out
+    // The rest either play a parallel match (20 players) or sit the round out
     const usedOpponentIds = new Set(selectedOpponents.map(p => p.id));
-    const benched = opponentPool.filter(p => !usedOpponentIds.has(p.id));
+    const leftover = opponentPool.filter(p => !usedOpponentIds.has(p.id));
+    const { match2, benched } = splitLeftover(leftover, benchCounts);
 
     const match1 = makeMatch(resTeam, opponentTeam);
 
@@ -248,6 +306,7 @@ export function generateRound(
     const repeatOpponentCount = selectedOpponents.filter(p => previousOpponentIds.has(p.id)).length;
     const score =
       match1.matchMMRDiff * 2 +
+      (match2?.matchMMRDiff ?? 0) +
       repeatOpponentCount * 150 +
       benchPenalty(benched, benchCounts);
 
@@ -257,6 +316,7 @@ export function generateRound(
         id: crypto.randomUUID(),
         roundNumber,
         match1,
+        ...(match2 ? { match2 } : {}),
         benchedPlayerIds: benched.map(p => p.id),
         isFinal: false,
         timestamp: new Date().toISOString(),
@@ -266,13 +326,16 @@ export function generateRound(
 
   // Assign PCs
   bestRound!.match1.pcAssignments = assignPCs(bestRound!.match1, PC_LAYOUT.match1);
+  if (bestRound!.match2) {
+    bestRound!.match2.pcAssignments = assignPCs(bestRound!.match2, PC_LAYOUT.match2);
+  }
 
   return bestRound!;
 }
 
 // ══════════════════════════════════════════════════
 // FINAL ROUND: Resolut1on + remaining (never-teammates) vs MVP All-Stars
-// Everyone else sits it out — there is no parallel match in the 15-player format.
+// Everyone else plays a parallel match, or sits it out on a smaller roster.
 // ══════════════════════════════════════════════════
 
 export function generateFinalRound(
@@ -315,21 +378,24 @@ export function generateFinalRound(
 
   const match1 = makeMatch(resTeam, allStarTeam);
 
-  // Everyone outside the two final teams watches
+  // Everyone outside the two final teams plays a parallel match, or watches
   const usedIds = new Set([
     resolut1on.id,
     ...resTeammates.map(p => p.id),
     ...allStars.slice(0, 5).map(p => p.id),
   ]);
-  const benched = players.filter(p => !usedIds.has(p.id));
+  const leftover = players.filter(p => !usedIds.has(p.id));
+  const { match2, benched } = splitLeftover(leftover, getBenchCounts(previousRounds));
 
   // Assign PCs
   match1.pcAssignments = assignPCs(match1, PC_LAYOUT.match1);
+  if (match2) match2.pcAssignments = assignPCs(match2, PC_LAYOUT.match2);
 
   return {
     id: crypto.randomUUID(),
     roundNumber,
     match1,
+    ...(match2 ? { match2 } : {}),
     benchedPlayerIds: benched.map(p => p.id),
     isFinal: true,
     timestamp: new Date().toISOString(),

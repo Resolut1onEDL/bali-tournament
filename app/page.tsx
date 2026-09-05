@@ -4,17 +4,17 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import Image from 'next/image'
 
 const games = [
-  { num: 1, team1: 'Resolut1on + Группа A', team2: 'Группа B', time: '10:00–11:00', side: 'Остальные группы — матч между собой' },
-  { num: 2, team1: 'Resolut1on + Группа B', team2: 'Группа C', time: '11:15–12:15', side: 'Остальные группы — матч между собой' },
-  { num: 3, team1: 'Resolut1on + Группа C', team2: 'Группа D', time: '12:30–13:30', side: 'Остальные группы — матч между собой' },
-  { num: 4, team1: 'Resolut1on + Группа D', team2: 'Группа A', time: '13:45–14:45', side: 'Остальные группы — матч между собой' },
+  { num: 1, team1: 'Resolut1on + 4 игрока', team2: '5 игроков', time: '14:00–15:00', side: 'Составы пересобираются перед каждым раундом' },
+  { num: 2, team1: 'Resolut1on + 4 игрока', team2: '5 игроков', time: '15:15–16:15', side: 'Новые тиммейты — никто не повторяется' },
+  { num: 3, team1: 'Resolut1on + 4 игрока', team2: '5 игроков', time: '16:30–17:30', side: 'Составы пересобираются перед каждым раундом' },
+  { num: 4, team1: 'Resolut1on + 4 игрока', team2: '5 игроков', time: '17:45–18:45', side: 'Новые тиммейты — никто не повторяется' },
 ]
 
 const finalGame = {
   team1: 'Resolut1on + Финалисты',
   team2: 'All-Stars MVP',
-  time: '15:15–16:15',
-  side: 'Оставшиеся 10 игроков — матч между собой',
+  time: '19:15–20:15',
+  side: 'Пятёрку All-Stars выбирают голосованием в большом перерыве',
 }
 
 function Particles() {
@@ -158,7 +158,7 @@ function Schedule() {
                     isActive ? 'border-amber-500/15' : 'border-white/[0.06]'
                   }`}>
                     <span className="text-sm text-white/30">
-                      Параллельно: {game.side}
+                      {game.side}
                     </span>
                   </div>
                 </div>
@@ -206,7 +206,7 @@ function Schedule() {
                   isActive ? 'border-amber-500/20' : 'border-amber-500/10'
                 }`}>
                   <span className="text-sm text-white/30">
-                    Параллельно: {finalGame.side}
+                    {finalGame.side}
                   </span>
                 </div>
               </div>
@@ -250,7 +250,7 @@ export default function Home() {
         {/* Content */}
         <div className="relative z-10 flex flex-col items-center text-center px-5 md:px-8 pt-28 md:pt-36 pb-20">
           <p className="text-sm md:text-base tracking-[0.2em] text-white/50 uppercase font-medium">
-            1 марта 2026 · Убуд, Бали
+            6 сентября · TimeHub, Убуд · старт 14:00
           </p>
 
           <h1 className="mt-5 text-7xl md:text-[120px] lg:text-[140px] font-black leading-[0.85] tracking-tight text-white drop-shadow-[0_4px_40px_rgba(0,0,0,0.6)]">
@@ -264,7 +264,7 @@ export default function Home() {
           <p className="mt-5 md:mt-6 text-white/80 text-base md:text-lg leading-relaxed max-w-xl">
             Шоуматч предпринимателей с участием <span className="text-white font-bold">Resolut1on</span> —
             финалиста The International 6 и The International 12.
-            20 игроков, 10 матчей. Каждый сыграет в одной команде с про-игроком.
+            20 игроков, 5 раундов. Каждый сыграет в одной команде с про-игроком.
           </p>
 
           {/* Player — sticker style */}
@@ -312,7 +312,7 @@ export default function Home() {
               <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
               <circle cx="12" cy="10" r="3" />
             </svg>
-            <span className="text-sm font-medium">Убуд, Бали · Открыть на карте</span>
+            <span className="text-sm font-medium">TimeHub, Убуд · Открыть на карте</span>
           </a>
         </div>
 
@@ -330,8 +330,8 @@ export default function Home() {
         <div className="max-w-5xl mx-auto px-6 md:px-8 flex justify-center gap-14 md:gap-32">
           {[
             { value: '20', label: 'Игроков' },
-            { value: '10', label: 'Матчей' },
-            { value: '20', label: 'Компов' },
+            { value: '5', label: 'Раундов' },
+            { value: '14:00', label: 'Старт' },
           ].map((stat) => (
             <div key={stat.label} className="text-center">
               <div className="text-5xl md:text-7xl font-black tracking-tight text-white">
@@ -400,7 +400,7 @@ export default function Home() {
               Всего 19 мест
             </p>
             <p className="text-white/70 text-lg md:text-xl font-semibold mb-8">
-              10 эпичных матчей · тусовка предпринимателей · уникальное событие года
+              5 раундов · тусовка предпринимателей · уникальное событие года
             </p>
             <a
               href="https://t.me/TimeHub_PC?text=%D0%A0%D0%B5%D0%B1%D1%8F%D1%82%2C%20%D1%85%D0%BE%D1%87%D1%83%20%D0%B7%D0%B0%D0%BD%D1%8F%D1%82%D1%8C%20%D0%BC%D0%B5%D1%81%D1%82%D0%BE%20%D0%BD%D0%B0%20%D1%88%D0%BE%D1%83-%D0%BC%D0%B0%D1%82%D1%87%D0%B5.%20%D0%9A%D0%B8%D0%B4%D0%B0%D0%B9%D1%82%D0%B5%20%D0%B8%D0%BD%D1%84%D1%83%20%E2%80%94%20%D1%87%D1%82%D0%BE%2C%20%D0%B3%D0%B4%D0%B5%2C%20%D0%BA%D0%BE%D0%B3%D0%B4%D0%B0.%20%D0%93%D0%BE%D1%82%D0%BE%D0%B2%20%D0%BA%D0%B0%D1%82%D0%B0%D1%82%D1%8C%20%F0%9F%8E%AE"
@@ -418,7 +418,7 @@ export default function Home() {
       <footer className="relative z-10 max-w-5xl mx-auto px-5 md:px-8 pb-8">
         <div className="flex items-center justify-between py-4 border-t border-white/5">
           <span className="text-xs font-medium text-white/20 uppercase tracking-wide">Resolut1on Showmatch Series</span>
-          <span className="text-xs font-medium text-white/20 uppercase tracking-wide">BALI · 2026</span>
+          <span className="text-xs font-medium text-white/20 uppercase tracking-wide">BALI · СЕЗОН 2</span>
         </div>
       </footer>
     </div>

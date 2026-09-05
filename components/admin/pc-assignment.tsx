@@ -51,7 +51,10 @@ export function PCAssignment({ rounds, players, currentIndex, onSelectRound }: P
   }
 
   const round = rounds[currentIndex];
-  const allAssignments = round.match1.pcAssignments;
+  const allAssignments = [
+    ...round.match1.pcAssignments,
+    ...(round.match2?.pcAssignments ?? []),
+  ];
   const benchedNames = (round.benchedPlayerIds ?? [])
     .map(id => players.find(p => p.id === id)?.name)
     .filter((name): name is string => Boolean(name));
@@ -65,7 +68,7 @@ export function PCAssignment({ rounds, players, currentIndex, onSelectRound }: P
       {/* Match Area */}
       <div className="space-y-3">
         <h3 className="text-sm font-semibold text-white/60 uppercase tracking-wider">
-          Match Area — PC 1–10
+          {round.match2 ? "Resolut1on's Match — PC 1–10" : 'Match Area — PC 1–10'}
         </h3>
         <div className="rounded-xl border border-white/[0.08] bg-white/[0.04] p-4 space-y-4">
           <div>
@@ -86,6 +89,33 @@ export function PCAssignment({ rounds, players, currentIndex, onSelectRound }: P
           </div>
         </div>
       </div>
+
+      {/* Parallel Match Area */}
+      {round.match2 && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-white/60 uppercase tracking-wider">
+            Parallel Match — PC 11–20
+          </h3>
+          <div className="rounded-xl border border-white/[0.08] bg-white/[0.04] p-4 space-y-4">
+            <div>
+              <span className="text-xs text-emerald-400/60 uppercase tracking-wider mb-2 block">Radiant</span>
+              <div className="grid grid-cols-5 gap-2">
+                {[11, 12, 13, 14, 15].map(pc => (
+                  <PCCell key={pc} assignment={getAssignment(pc)} pcNumber={pc} />
+                ))}
+              </div>
+            </div>
+            <div>
+              <span className="text-xs text-red-400/60 uppercase tracking-wider mb-2 block">Dire</span>
+              <div className="grid grid-cols-5 gap-2">
+                {[16, 17, 18, 19, 20].map(pc => (
+                  <PCCell key={pc} assignment={getAssignment(pc)} pcNumber={pc} />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Bench */}
       {benchedNames.length > 0 && (

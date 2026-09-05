@@ -37,7 +37,8 @@ export interface Match {
 export interface Round {
   id: string;
   roundNumber: number;
-  match1: Match;              // the single match of this round
+  match1: Match;              // Resolut1on's match (or the final)
+  match2?: Match;             // parallel match — only when 20 players are in
   benchedPlayerIds: string[]; // players sitting this round out
   isFinal: boolean;
   timestamp: string;
