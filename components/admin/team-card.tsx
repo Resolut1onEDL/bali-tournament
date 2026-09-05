@@ -2,15 +2,16 @@
 
 import type { Team, PCAssignment, Position } from '@/lib/types';
 import { POSITION_LABELS, POSITION_COLORS, TEAM_COLORS } from '@/lib/constants';
-import { Star, Monitor } from 'lucide-react';
+import { Star, Monitor, Trophy } from 'lucide-react';
 
 interface Props {
   team: Team;
   pcAssignments: PCAssignment[];
   side: 'radiant' | 'dire';
+  isWinner?: boolean;
 }
 
-export function TeamCard({ team, pcAssignments, side }: Props) {
+export function TeamCard({ team, pcAssignments, side, isWinner }: Props) {
   const teamKey = team.name.replace('Team ', '');
   const colors = TEAM_COLORS[teamKey] || TEAM_COLORS.Alpha;
 
@@ -19,11 +20,19 @@ export function TeamCard({ team, pcAssignments, side }: Props) {
   const sortedPlayers = [...team.players].sort((a, b) => getPos(a) - getPos(b));
 
   return (
-    <div className={`rounded-xl border ${colors.border} ${colors.bg} overflow-hidden`}>
+    <div className={`rounded-xl border overflow-hidden ${
+      isWinner ? 'border-emerald-500/40 bg-emerald-500/[0.06]' : `${colors.border} ${colors.bg}`
+    }`}>
       <div className={`px-4 py-3 border-b ${colors.border} flex items-center justify-between`}>
         <div className="flex items-center gap-2">
           <h4 className={`font-semibold ${colors.text}`}>{team.name}</h4>
           <span className="text-xs text-white/40 uppercase">{side}</span>
+          {isWinner && (
+            <span className="flex items-center gap-1 text-xs font-semibold text-emerald-400">
+              <Trophy className="w-3.5 h-3.5" />
+              Winner
+            </span>
+          )}
         </div>
         <span className="text-sm text-white/60 tabular-nums">
           Avg MMR: <span className="text-white font-medium">{team.averageMMR.toLocaleString()}</span>

@@ -1,14 +1,21 @@
 'use client';
 
-import type { Round } from '@/lib/types';
+import type { Player, Round } from '@/lib/types';
 import { MatchDisplay } from './match-display';
 import { Separator } from '@/components/ui/separator';
+import { Coffee } from 'lucide-react';
 
 interface Props {
   round: Round;
+  players: Player[];
+  onSetWinner?: (winner: 'team1' | 'team2' | undefined) => void;
 }
 
-export function RoundView({ round }: Props) {
+export function RoundView({ round, players, onSetWinner }: Props) {
+  const benched = (round.benchedPlayerIds ?? [])
+    .map(id => players.find(p => p.id === id))
+    .filter((p): p is Player => Boolean(p));
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -25,15 +32,36 @@ export function RoundView({ round }: Props) {
         match={round.match1}
         matchLabel={round.isFinal ? 'Final Match' : "Resolut1on's Match"}
         pcRange="1–10"
+        onSetWinner={onSetWinner}
       />
 
-      <Separator className="bg-white/[0.08]" />
+      {benched.length > 0 && (
+        <>
+          <Separator className="bg-white/[0.08]" />
 
-      <MatchDisplay
-        match={round.match2}
-        matchLabel="Match 2"
-        pcRange="11–20"
-      />
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Coffee className="w-4 h-4 text-white/40" />
+              <h3 className="text-sm font-semibold text-white/60 uppercase tracking-wider">
+                Sitting out this round — {benched.length}
+              </h3>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {benched.map(player => (
+                <span
+                  key={player.id}
+                  className="px-3 py-1.5 rounded-lg border border-white/[0.08] bg-white/[0.02] text-sm text-white/60"
+                >
+                  {player.name}
+                  <span className="ml-2 text-xs text-white/30 tabular-nums">
+                    {player.mmr > 0 ? player.mmr.toLocaleString() : '—'}
+                  </span>
+                </span>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

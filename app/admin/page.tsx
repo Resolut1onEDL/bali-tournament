@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { Player, TournamentState } from '@/lib/types';
-import { TOTAL_PLAYERS } from '@/lib/constants';
+import { TOTAL_PLAYERS, MIN_PLAYERS } from '@/lib/constants';
 import { loadTournamentState, saveTournamentState, clearTournamentState } from '@/lib/storage';
 import { generateRound, generateAllRegularRounds, generateFinalRound } from '@/lib/shuffle';
 
@@ -15,8 +15,9 @@ import { RoundView } from '@/components/admin/round-view';
 import { MvpSelector } from '@/components/admin/mvp-selector';
 import { PCAssignment } from '@/components/admin/pc-assignment';
 import { ImportExport } from '@/components/admin/import-export';
+import { Standings } from '@/components/admin/standings';
 
-import { Users, Shuffle, Monitor, Settings } from 'lucide-react';
+import { Users, Shuffle, Monitor, Settings, Trophy } from 'lucide-react';
 
 export default function AdminPage() {
   const [state, setState] = useState<TournamentState>(() => ({
@@ -68,7 +69,7 @@ export default function AdminPage() {
 
   // Shuffle — single round
   const handleGenerateRound = useCallback(() => {
-    if (state.players.length < TOTAL_PLAYERS || !hasResolut1on) return;
+    if (state.players.length < MIN_PLAYERS || !hasResolut1on) return;
     if (regularRounds.length >= 4) return;
 
     const round = generateRound(state.players, regularRounds, regularRounds.length + 1);
@@ -83,7 +84,7 @@ export default function AdminPage() {
 
   // Shuffle — all 4 regular rounds
   const handleGenerateAllRounds = useCallback(() => {
-    if (state.players.length < TOTAL_PLAYERS || !hasResolut1on) return;
+    if (state.players.length < MIN_PLAYERS || !hasResolut1on) return;
 
     const allRounds = generateAllRegularRounds(state.players, []);
     setState(prev => ({
@@ -135,6 +136,15 @@ export default function AdminPage() {
     }
   }, []);
 
+  const handleSetWinner = useCallback((roundId: string, winner: 'team1' | 'team2' | undefined) => {
+    setState(prev => ({
+      ...prev,
+      rounds: prev.rounds.map(r =>
+        r.id === roundId ? { ...r, match1: { ...r.match1, winner } } : r
+      ),
+    }));
+  }, []);
+
   const handleSelectRound = useCallback((index: number) => {
     setState(prev => ({ ...prev, currentRoundIndex: index }));
   }, []);
@@ -172,7 +182,8 @@ export default function AdminPage() {
           <span className="text-white/60">Shuffle</span>
         </h1>
         <p className="text-white/40 text-sm mt-1">
-          4 rounds + MVP All-Stars final — Resolut1on plays with new teammates each round
+          {TOTAL_PLAYERS} players — 4 rounds + MVP All-Stars final. One 5v5 match per round,
+          Resolut1on gets new teammates each round, the rest sit out in rotation.
         </p>
       </div>
 
@@ -189,6 +200,10 @@ export default function AdminPage() {
           <TabsTrigger value="pcmap" className="data-[state=active]:bg-amber-500 data-[state=active]:text-black rounded-lg gap-2">
             <Monitor className="w-4 h-4" />
             PC Map
+          </TabsTrigger>
+          <TabsTrigger value="standings" className="data-[state=active]:bg-amber-500 data-[state=active]:text-black rounded-lg gap-2">
+            <Trophy className="w-4 h-4" />
+            Standings
           </TabsTrigger>
           <TabsTrigger value="settings" className="data-[state=active]:bg-amber-500 data-[state=active]:text-black rounded-lg gap-2">
             <Settings className="w-4 h-4" />
@@ -244,26 +259,32 @@ export default function AdminPage() {
                 onSelectRound={handleSelectRound}
               />
               {state.rounds[state.currentRoundIndex] && (
-                <RoundView round={state.rounds[state.currentRoundIndex]} />
+                <RoundView
+                  round={state.rounds[state.currentRoundIndex]}
+                  players={state.players}
+                  onSetWinner={winner =>
+                    handleSetWinner(state.rounds[state.currentRoundIndex].id, winner)
+                  }
+                />
               )}
             </>
           )}
 
-          {state.rounds.length === 0 && state.players.length === TOTAL_PLAYERS && hasResolut1on && (
+          {state.rounds.length === 0 && state.players.length >= MIN_PLAYERS && hasResolut1on && (
             <div className="rounded-xl border border-white/[0.08] bg-white/[0.04] p-12 text-center">
               <Shuffle className="w-12 h-12 text-white/20 mx-auto mb-4" />
               <p className="text-white/40">
-                All {TOTAL_PLAYERS} players registered. Click &quot;Round 1&quot; to start.
+                {state.players.length} players registered. Click &quot;Round 1&quot; to start.
               </p>
             </div>
           )}
 
-          {(state.players.length < TOTAL_PLAYERS || !hasResolut1on) && (
+          {(state.players.length < MIN_PLAYERS || !hasResolut1on) && (
             <div className="rounded-xl border border-white/[0.08] bg-white/[0.04] p-12 text-center">
               <Users className="w-12 h-12 text-white/20 mx-auto mb-4" />
               <p className="text-white/40">
-                {state.players.length < TOTAL_PLAYERS &&
-                  `Register ${TOTAL_PLAYERS - state.players.length} more players. `}
+                {state.players.length < MIN_PLAYERS &&
+                  `Register ${MIN_PLAYERS - state.players.length} more players. `}
                 {!hasResolut1on && 'Mark one player as Resolut1on.'}
               </p>
             </div>
@@ -274,9 +295,15 @@ export default function AdminPage() {
         <TabsContent value="pcmap">
           <PCAssignment
             rounds={state.rounds}
+            players={state.players}
             currentIndex={state.currentRoundIndex}
             onSelectRound={handleSelectRound}
           />
+        </TabsContent>
+
+        {/* Standings Tab */}
+        <TabsContent value="standings">
+          <Standings players={state.players} rounds={state.rounds} />
         </TabsContent>
 
         {/* Settings Tab */}

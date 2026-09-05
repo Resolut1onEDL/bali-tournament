@@ -141,40 +141,33 @@ function getResolut1onHistory(rounds: Round[], resolut1onId: string) {
   return { teammateIds, opponentIds };
 }
 
-// ── Balance 10 players into 2 teams of 5 ──
-// Tries many candidates and picks the most MMR-balanced split
+// ── How many rounds each player has already sat out ──
+// Used to spread the bench fairly: whoever sat least plays next.
 
-function balancedSplit(players: Player[]): [Player[], Player[]] {
-  if (players.length !== 10) {
-    // fallback: just split in half
-    return [players.slice(0, 5), players.slice(5)];
-  }
-
-  const CANDIDATES = 100;
-  let bestDiff = Infinity;
-  let bestA: Player[] = players.slice(0, 5);
-  let bestB: Player[] = players.slice(5);
-
-  for (let c = 0; c < CANDIDATES; c++) {
-    const shuffled = fisherYates(players);
-    const a = shuffled.slice(0, 5);
-    const b = shuffled.slice(5);
-    const diff = Math.abs(avgMMR(a) - avgMMR(b));
-    if (diff < bestDiff) {
-      bestDiff = diff;
-      bestA = a;
-      bestB = b;
+function getBenchCounts(rounds: Round[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const round of rounds) {
+    for (const id of round.benchedPlayerIds ?? []) {
+      counts.set(id, (counts.get(id) ?? 0) + 1);
     }
   }
+  return counts;
+}
 
-  return [bestA, bestB];
+// Bench fairness outranks everything else: the weight is large enough that no
+// MMR or opponent-variety gain can buy a seat for someone who already sat out.
+// Among equally fair line-ups the score then falls back to MMR balance.
+const BENCH_REPEAT_PENALTY = 100_000;
+
+function benchPenalty(benched: Player[], benchCounts: Map<string, number>): number {
+  return benched.reduce((sum, p) => sum + (benchCounts.get(p.id) ?? 0) * BENCH_REPEAT_PENALTY, 0);
 }
 
 // ══════════════════════════════════════════════════
 // MAIN: Generate a regular round (1-4)
 // Resolut1on gets 4 NEW teammates he hasn't played with yet.
 // Opponent team is balanced from 5 more players.
-// Remaining 10 play a parallel match.
+// The remaining players sit this round out (bench), rotated fairly.
 // ══════════════════════════════════════════════════
 
 export function generateRound(
@@ -188,6 +181,7 @@ export function generateRound(
   const others = players.filter(p => !p.isResolut1on);
   const { teammateIds: previousTeammateIds, opponentIds: previousOpponentIds } =
     getResolut1onHistory(previousRounds, resolut1on.id);
+  const benchCounts = getBenchCounts(previousRounds);
 
   // Players who haven't been Resolut1on's teammates yet
   const available = others.filter(p => !previousTeammateIds.has(p.id));
@@ -196,7 +190,7 @@ export function generateRound(
 
   // Pick 4 teammates for Resolut1on from available pool
   // Try many candidates for best MMR balance + opponent variety
-  const CANDIDATES = 200;
+  const CANDIDATES = 800;
   let bestRound: Round | null = null;
   let bestScore = Infinity;
 
@@ -244,19 +238,18 @@ export function generateRound(
     const opponentPlayers = assignPositionsToTeam(selectedOpponents);
     const opponentTeam = makeTeam('Opponents', opponentPlayers);
 
-    // Remaining 10 for parallel match
+    // Everyone not picked for the match sits this round out
     const usedOpponentIds = new Set(selectedOpponents.map(p => p.id));
-    const parallelPlayers = opponentPool.filter(p => !usedOpponentIds.has(p.id));
-    const [pA, pB] = balancedSplit(parallelPlayers);
-    const parallelTeam1 = makeTeam('Team Alpha', assignPositionsToTeam(pA));
-    const parallelTeam2 = makeTeam('Team Bravo', assignPositionsToTeam(pB));
+    const benched = opponentPool.filter(p => !usedOpponentIds.has(p.id));
 
     const match1 = makeMatch(resTeam, opponentTeam);
-    const match2 = makeMatch(parallelTeam1, parallelTeam2);
 
-    // Score: MMR balance + opponent variety penalty
+    // Score: MMR balance + opponent variety penalty + bench fairness penalty
     const repeatOpponentCount = selectedOpponents.filter(p => previousOpponentIds.has(p.id)).length;
-    const score = match1.matchMMRDiff * 2 + match2.matchMMRDiff + repeatOpponentCount * 150;
+    const score =
+      match1.matchMMRDiff * 2 +
+      repeatOpponentCount * 150 +
+      benchPenalty(benched, benchCounts);
 
     if (score < bestScore) {
       bestScore = score;
@@ -264,7 +257,7 @@ export function generateRound(
         id: crypto.randomUUID(),
         roundNumber,
         match1,
-        match2,
+        benchedPlayerIds: benched.map(p => p.id),
         isFinal: false,
         timestamp: new Date().toISOString(),
       };
@@ -273,13 +266,13 @@ export function generateRound(
 
   // Assign PCs
   bestRound!.match1.pcAssignments = assignPCs(bestRound!.match1, PC_LAYOUT.match1);
-  bestRound!.match2.pcAssignments = assignPCs(bestRound!.match2, PC_LAYOUT.match2);
 
   return bestRound!;
 }
 
 // ══════════════════════════════════════════════════
 // FINAL ROUND: Resolut1on + remaining (never-teammates) vs MVP All-Stars
+// Everyone else sits it out — there is no parallel match in the 15-player format.
 // ══════════════════════════════════════════════════
 
 export function generateFinalRound(
@@ -322,27 +315,22 @@ export function generateFinalRound(
 
   const match1 = makeMatch(resTeam, allStarTeam);
 
-  // Remaining 10 for parallel match
+  // Everyone outside the two final teams watches
   const usedIds = new Set([
     resolut1on.id,
     ...resTeammates.map(p => p.id),
     ...allStars.slice(0, 5).map(p => p.id),
   ]);
-  const remaining = players.filter(p => !usedIds.has(p.id));
-  const [pA, pB] = balancedSplit(remaining);
-  const parallelTeam1 = makeTeam('Team Alpha', assignPositionsToTeam(pA));
-  const parallelTeam2 = makeTeam('Team Bravo', assignPositionsToTeam(pB));
-  const match2 = makeMatch(parallelTeam1, parallelTeam2);
+  const benched = players.filter(p => !usedIds.has(p.id));
 
   // Assign PCs
   match1.pcAssignments = assignPCs(match1, PC_LAYOUT.match1);
-  match2.pcAssignments = assignPCs(match2, PC_LAYOUT.match2);
 
   return {
     id: crypto.randomUUID(),
     roundNumber,
     match1,
-    match2,
+    benchedPlayerIds: benched.map(p => p.id),
     isFinal: true,
     timestamp: new Date().toISOString(),
   };

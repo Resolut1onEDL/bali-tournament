@@ -31,13 +31,14 @@ export interface Match {
   team2: Team;
   matchMMRDiff: number;
   pcAssignments: PCAssignment[];
+  winner?: 'team1' | 'team2';
 }
 
 export interface Round {
   id: string;
   roundNumber: number;
-  match1: Match;       // Resolut1on's match (rounds 1-4) or final match (round 5)
-  match2: Match;       // Parallel match for remaining 10 players
+  match1: Match;              // the single match of this round
+  benchedPlayerIds: string[]; // players sitting this round out
   isFinal: boolean;
   timestamp: string;
 }

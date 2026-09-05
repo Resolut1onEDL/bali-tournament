@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import type { Player, Position } from '@/lib/types';
-import { POSITION_LABELS, POSITION_COLORS, TOTAL_PLAYERS } from '@/lib/constants';
+import { POSITION_LABELS, POSITION_COLORS, TOTAL_PLAYERS, MAX_PLAYERS } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -30,7 +30,7 @@ export function PlayerRegistration({
   const [isResolut1on, setIsResolut1on] = useState(editingPlayer?.isResolut1on ?? false);
 
   const isEditing = !!editingPlayer;
-  const isFull = players.length >= TOTAL_PLAYERS && !isEditing;
+  const isFull = players.length >= MAX_PLAYERS && !isEditing;
 
   useEffect(() => {
     if (editingPlayer) {

@@ -68,7 +68,13 @@ export function PlayerList({ players, isLocked, onEditPlayer, onRemovePlayer }: 
                       {player.name}
                     </span>
                   </td>
-                  <td className="px-6 py-3 text-white/80 tabular-nums">{player.mmr.toLocaleString()}</td>
+                  <td className="px-6 py-3 tabular-nums">
+                    {player.mmr > 0 ? (
+                      <span className="text-white/80">{player.mmr.toLocaleString()}</span>
+                    ) : (
+                      <span className="text-red-400">not set</span>
+                    )}
+                  </td>
                   <td className="px-6 py-3">
                     <div className="flex flex-wrap gap-1">
                       {player.positions.map(pos => (

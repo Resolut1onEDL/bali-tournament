@@ -36,6 +36,7 @@ export function loadTournamentState(): TournamentState {
     if (parsed.rounds) {
       for (const r of parsed.rounds) {
         if (r.isFinal === undefined) r.isFinal = false;
+        if (!r.benchedPlayerIds) r.benchedPlayerIds = [];
       }
     }
     return parsed as TournamentState;

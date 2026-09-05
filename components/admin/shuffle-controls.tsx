@@ -1,7 +1,7 @@
 'use client';
 
 import type { Player, Round } from '@/lib/types';
-import { TOTAL_PLAYERS } from '@/lib/constants';
+import { MIN_PLAYERS } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import { Shuffle, Zap, Trash2, Trophy } from 'lucide-react';
 
@@ -28,12 +28,20 @@ export function ShuffleControls({
 }: Props) {
   const regularRounds = rounds.filter(r => !r.isFinal);
   const hasFinal = rounds.some(r => r.isFinal);
-  const canShuffle = players.length === TOTAL_PLAYERS && hasResolut1on && regularRounds.length < 4;
+  const playersWithoutMMR = players.filter(p => p.mmr <= 0);
+  const canShuffle =
+    players.length >= MIN_PLAYERS &&
+    hasResolut1on &&
+    playersWithoutMMR.length === 0 &&
+    regularRounds.length < 4;
   const canFinal = regularRounds.length === 4 && !hasFinal && mvpAllStarIds.length === 5;
 
   const missingParts: string[] = [];
-  if (players.length < TOTAL_PLAYERS) missingParts.push(`${TOTAL_PLAYERS - players.length} more players`);
+  if (players.length < MIN_PLAYERS) missingParts.push(`${MIN_PLAYERS - players.length} more players`);
   if (!hasResolut1on) missingParts.push('mark Resolut1on');
+  if (playersWithoutMMR.length > 0) {
+    missingParts.push(`MMR for ${playersWithoutMMR.map(p => p.name).join(', ')}`);
+  }
 
   return (
     <div className="rounded-xl border border-white/[0.08] bg-white/[0.04] p-6 space-y-4">
@@ -47,7 +55,7 @@ export function ShuffleControls({
               ? 'Tournament complete — 4 rounds + final'
               : regularRounds.length === 4
               ? 'All 4 rounds done — select MVP All-Stars for final'
-              : `Round ${regularRounds.length} / 4 completed`
+              : `Round ${regularRounds.length} / 4 completed — ${players.length} players, ${players.length - MIN_PLAYERS} on the bench each round`
             }
           </p>
         </div>
