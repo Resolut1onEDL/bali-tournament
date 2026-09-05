@@ -163,6 +163,17 @@ function benchPenalty(benched: Player[], benchCounts: Map<string, number>): numb
   return benched.reduce((sum, p) => sum + (benchCounts.get(p.id) ?? 0) * BENCH_REPEAT_PENALTY, 0);
 }
 
+// Keep the bench representative of the roster instead of a place to park the
+// strong players. Balancing a round by benching every top player is cheap now
+// but expensive later: fair rotation brings them all back in the same round,
+// and that round cannot be balanced at all.
+const BENCH_SKEW_WEIGHT = 3;
+
+function benchSkewPenalty(benched: Player[], rosterAverage: number): number {
+  if (benched.length === 0) return 0;
+  return Math.abs(avgMMR(benched) - rosterAverage) * BENCH_SKEW_WEIGHT;
+}
+
 // ── Balance 10 players into 2 teams of 5 ──
 // Tries many candidates and picks the most MMR-balanced split
 
@@ -239,6 +250,7 @@ export function generateRound(
   const { teammateIds: previousTeammateIds, opponentIds: previousOpponentIds } =
     getResolut1onHistory(previousRounds, resolut1on.id);
   const benchCounts = getBenchCounts(previousRounds);
+  const rosterAverage = avgMMR(others);
 
   // Players who haven't been Resolut1on's teammates yet
   const available = others.filter(p => !previousTeammateIds.has(p.id));
@@ -308,7 +320,8 @@ export function generateRound(
       match1.matchMMRDiff * 2 +
       (match2?.matchMMRDiff ?? 0) +
       repeatOpponentCount * 150 +
-      benchPenalty(benched, benchCounts);
+      benchPenalty(benched, benchCounts) +
+      benchSkewPenalty(benched, rosterAverage);
 
     if (score < bestScore) {
       bestScore = score;
@@ -402,17 +415,138 @@ export function generateFinalRound(
   };
 }
 
-// Generate all 4 regular rounds at once
+// ══════════════════════════════════════════════════
+// Generate all 4 regular rounds at once.
+//
+// This plans the whole tournament instead of solving one round at a time.
+// Round-by-round is greedy: it balances early rounds by benching the strongest
+// players, and 4 rounds x 4 teammates consumes the roster exactly, so the last
+// round gets whoever is left and cannot be balanced at all. Planning all four
+// teammate groups up front lets a round that hands Resolut1on strong teammates
+// also field strong opponents.
+// ══════════════════════════════════════════════════
+
+const TEAMMATES_PER_ROUND = 4;
+const REGULAR_ROUNDS = 4;
+
 export function generateAllRegularRounds(
   players: Player[],
   existingRounds: Round[],
 ): Round[] {
-  const rounds = [...existingRounds.filter(r => !r.isFinal)];
-  const startFrom = rounds.length + 1;
+  const existing = existingRounds.filter(r => !r.isFinal);
 
-  for (let i = startFrom; i <= 4; i++) {
-    const round = generateRound(players, rounds, i);
-    rounds.push(round);
+  // Continuing a tournament that already started — keep the round-by-round path
+  if (existing.length > 0) {
+    const rounds = [...existing];
+    for (let i = rounds.length + 1; i <= REGULAR_ROUNDS; i++) {
+      rounds.push(generateRound(players, rounds, i));
+    }
+    return rounds;
+  }
+
+  const resolut1on = players.find(p => p.isResolut1on);
+  if (!resolut1on) throw new Error('Resolut1on not found in player list');
+
+  const others = players.filter(p => !p.isResolut1on);
+  const rosterAverage = avgMMR(others);
+  const TEAMMATE_SLOTS = TEAMMATES_PER_ROUND * REGULAR_ROUNDS;
+
+  const PLANS = 250;
+  const OPPONENT_TRIES = 60;
+
+  let bestPlan: { teammates: Player[]; opponents: Player[] }[] | null = null;
+  let bestScore = Infinity;
+
+  for (let plan = 0; plan < PLANS; plan++) {
+    // Deal every teammate slot before scoring, so no round inherits leftovers.
+    // A roster shorter than the slot count means some players play with him twice.
+    const slots: Player[] = [];
+    while (slots.length < TEAMMATE_SLOTS) slots.push(...fisherYates(others));
+
+    const benchCounts = new Map<string, number>();
+    const layout: { teammates: Player[]; opponents: Player[] }[] = [];
+    let planScore = 0;
+    let worstDiff = 0;
+
+    for (let r = 0; r < REGULAR_ROUNDS; r++) {
+      const teammates = slots.slice(r * TEAMMATES_PER_ROUND, (r + 1) * TEAMMATES_PER_ROUND);
+      const teammateIds = new Set(teammates.map(p => p.id));
+      const pool = others.filter(p => !teammateIds.has(p.id));
+      const resTeamAverage = avgMMR([resolut1on, ...teammates]);
+
+      // Only numbers here — teams are built once, for the winning plan
+      let bestRoundScore = Infinity;
+      let bestOpponents = pool.slice(0, 5);
+      let bestBenched: Player[] = [];
+      let bestDiff = Infinity;
+
+      for (let t = 0; t < OPPONENT_TRIES; t++) {
+        const shuffled = fisherYates(pool);
+        const opponents = shuffled.slice(0, 5);
+        const leftover = shuffled.slice(5);
+        const benched = leftover.length >= PLAYERS_PER_MATCH
+          ? leftover.slice(PLAYERS_PER_MATCH)
+          : leftover;
+
+        const diff = Math.abs(resTeamAverage - avgMMR(opponents));
+        const score =
+          diff * 2 +
+          benchPenalty(benched, benchCounts) +
+          benchSkewPenalty(benched, rosterAverage);
+
+        if (score < bestRoundScore) {
+          bestRoundScore = score;
+          bestOpponents = opponents;
+          bestBenched = benched;
+          bestDiff = diff;
+        }
+      }
+
+      for (const p of bestBenched) {
+        benchCounts.set(p.id, (benchCounts.get(p.id) ?? 0) + 1);
+      }
+      planScore += bestRoundScore;
+      worstDiff = Math.max(worstDiff, bestDiff);
+      layout.push({ teammates, opponents: bestOpponents });
+    }
+
+    // Weight the worst round too, so three great rounds cannot hide a blowout
+    const total = planScore + worstDiff * 4;
+    if (total < bestScore) {
+      bestScore = total;
+      bestPlan = layout;
+    }
+  }
+
+  const rounds: Round[] = [];
+
+  for (let i = 0; i < REGULAR_ROUNDS; i++) {
+    const { teammates, opponents } = bestPlan![i];
+
+    const resTeam = makeTeam('Resolut1on Team', assignPositionsToTeam([resolut1on, ...teammates]));
+    const opponentTeam = makeTeam('Opponents', assignPositionsToTeam(opponents));
+    const match1 = makeMatch(resTeam, opponentTeam);
+
+    const usedIds = new Set([
+      resolut1on.id,
+      ...teammates.map(p => p.id),
+      ...opponents.map(p => p.id),
+    ]);
+    const leftover = others.filter(p => !usedIds.has(p.id));
+    const { match2, benched } = splitLeftover(leftover, getBenchCounts(rounds));
+
+    match1.pcAssignments = assignPCs(match1, PC_LAYOUT.match1);
+    if (match2) match2.pcAssignments = assignPCs(match2, PC_LAYOUT.match2);
+
+    rounds.push({
+      id: crypto.randomUUID(),
+      roundNumber: i + 1,
+      match1,
+      ...(match2 ? { match2 } : {}),
+      benchedPlayerIds: benched.map(p => p.id),
+      isFinal: false,
+      timestamp: new Date().toISOString(),
+    });
   }
 
   return rounds;
