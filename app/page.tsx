@@ -265,6 +265,7 @@ export default function Home() {
             Шоуматч предпринимателей с участием <span className="text-white font-bold">Resolut1on</span> —
             финалиста The International 6 и The International 12.
             20 игроков, 5 раундов. Каждый сыграет в одной команде с про-игроком.
+            Играем офлайн в клубе — или залетай онлайн из любой точки мира.
           </p>
 
           {/* Player — sticker style */}
@@ -314,6 +315,10 @@ export default function Home() {
             </svg>
             <span className="text-sm font-medium">TimeHub, Убуд · Открыть на карте</span>
           </a>
+
+          <p className="mt-3 text-sm text-white/50">
+            Не в Убуде? <span className="text-white/80 font-medium">Можно залететь онлайн</span> — играешь из дома, команды те же
+          </p>
         </div>
 
         {/* Scroll hint */}
@@ -400,7 +405,7 @@ export default function Home() {
               Всего 19 мест
             </p>
             <p className="text-white/70 text-lg md:text-xl font-semibold mb-8">
-              5 раундов · тусовка предпринимателей · уникальное событие года
+              5 раундов · офлайн в клубе или онлайн · тусовка предпринимателей
             </p>
             <a
               href="https://t.me/TimeHub_PC?text=%D0%A0%D0%B5%D0%B1%D1%8F%D1%82%2C%20%D1%85%D0%BE%D1%87%D1%83%20%D0%B7%D0%B0%D0%BD%D1%8F%D1%82%D1%8C%20%D0%BC%D0%B5%D1%81%D1%82%D0%BE%20%D0%BD%D0%B0%20%D1%88%D0%BE%D1%83-%D0%BC%D0%B0%D1%82%D1%87%D0%B5.%20%D0%9A%D0%B8%D0%B4%D0%B0%D0%B9%D1%82%D0%B5%20%D0%B8%D0%BD%D1%84%D1%83%20%E2%80%94%20%D1%87%D1%82%D0%BE%2C%20%D0%B3%D0%B4%D0%B5%2C%20%D0%BA%D0%BE%D0%B3%D0%B4%D0%B0.%20%D0%93%D0%BE%D1%82%D0%BE%D0%B2%20%D0%BA%D0%B0%D1%82%D0%B0%D1%82%D1%8C%20%F0%9F%8E%AE"
