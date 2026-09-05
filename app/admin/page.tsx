@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { Player, TournamentState } from '@/lib/types';
-import { TOTAL_PLAYERS, MIN_PLAYERS } from '@/lib/constants';
+import { MIN_PLAYERS, PLAYERS_PER_ROUND } from '@/lib/constants';
 import { loadTournamentState, saveTournamentState, clearTournamentState } from '@/lib/storage';
 import { generateRound, generateAllRegularRounds, generateFinalRound } from '@/lib/shuffle';
 
@@ -16,6 +16,7 @@ import { MvpSelector } from '@/components/admin/mvp-selector';
 import { PCAssignment } from '@/components/admin/pc-assignment';
 import { ImportExport } from '@/components/admin/import-export';
 import { Standings } from '@/components/admin/standings';
+import { ShareLinks } from '@/components/admin/share-links';
 
 import { Users, Shuffle, Monitor, Settings, Trophy } from 'lucide-react';
 
@@ -155,6 +156,10 @@ export default function AdminPage() {
     }));
   }, []);
 
+  const handleDiscordUrlChange = useCallback((url: string) => {
+    setState(prev => ({ ...prev, discordUrl: url }));
+  }, []);
+
   const handleSelectRound = useCallback((index: number) => {
     setState(prev => ({ ...prev, currentRoundIndex: index }));
   }, []);
@@ -193,8 +198,8 @@ export default function AdminPage() {
         </h1>
         <p className="text-white/40 text-sm mt-1">
           4 rounds + MVP All-Stars final. Resolut1on gets new teammates each round.
-          With {TOTAL_PLAYERS} players a round runs two matches in parallel and nobody sits;
-          with fewer, one match runs and the rest rotate through the bench.
+          A round seats {PLAYERS_PER_ROUND} players — two matches in parallel;
+          below that one match runs, above it the extras rotate through the bench.
         </p>
       </div>
 
@@ -259,6 +264,15 @@ export default function AdminPage() {
               players={activePlayers}
               selectedIds={state.mvpAllStarIds}
               onToggle={handleToggleMvp}
+            />
+          )}
+
+          {state.rounds.length > 0 && (
+            <ShareLinks
+              rounds={state.rounds}
+              players={state.players}
+              discordUrl={state.discordUrl ?? ''}
+              onDiscordUrlChange={handleDiscordUrlChange}
             />
           )}
 

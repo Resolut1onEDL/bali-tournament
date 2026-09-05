@@ -52,4 +52,5 @@ export interface TournamentState {
   totalRoundsTarget: number;  // 4 regular rounds (fixed) + 1 final = 5
   isLocked: boolean;
   mvpAllStarIds: string[];    // player IDs selected as MVP All-Stars for final
+  discordUrl?: string;        // invite shown on the shared round page
 }

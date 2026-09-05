@@ -1,17 +1,18 @@
 import type { Position } from './types';
 
-export const TOTAL_PLAYERS = 20;
+export const TOTAL_PLAYERS = 25;
 export const TEAM_SIZE = 5;
 export const TEAMS_PER_ROUND = 4;
 export const MATCHES_PER_ROUND = 2;
 export const DEFAULT_TOTAL_ROUNDS = 6;
 export const TOTAL_PCS = 20;
-// One 5v5 match needs 10 players. With 20 the round runs two matches in
-// parallel and nobody sits; with fewer, the round runs a single match and
-// the rest rotate through the bench, so a no-show does not block the event.
+// One 5v5 match needs 10 players. A round seats at most 20 of them: two
+// matches in parallel on PC 1-20. Below 20 the round runs a single match;
+// above 20 the extras rotate through the bench, so a big roster still works.
 export const PLAYERS_PER_MATCH = TEAM_SIZE * 2;
 export const MIN_PLAYERS = PLAYERS_PER_MATCH;
-export const MAX_PLAYERS = 20;
+export const PLAYERS_PER_ROUND = PLAYERS_PER_MATCH * 2;
+export const MAX_PLAYERS = 25;
 
 export const POSITION_LABELS: Record<Position, string> = {
   1: 'Carry',
