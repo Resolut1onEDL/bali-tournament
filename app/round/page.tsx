@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useSyncExternalStore } from 'react';
+import { Suspense, use, useMemo, useSyncExternalStore } from 'react';
 import type { SharedRound, SharedTournament } from '@/lib/share';
 import { decodeTournament } from '@/lib/share';
 import { POSITION_LABELS } from '@/lib/constants';
@@ -10,6 +10,21 @@ const ME_KEY = 'showmatch-me';
 // The link data lives in the URL hash and the "who am I" pick in localStorage —
 // both are outside React, so they are read as external stores rather than
 // synced into state from an effect.
+
+// use() needs a promise that survives re-renders. A component that suspends
+// before mounting loses its hooks, so useMemo would hand out a fresh promise on
+// every attempt and suspend forever — the cache has to live outside the render.
+const decoded = new Map<string, Promise<SharedTournament | null>>();
+const NOTHING: Promise<SharedTournament | null> = Promise.resolve(null);
+
+function decodeCached(hash: string): Promise<SharedTournament | null> {
+  let pending = decoded.get(hash);
+  if (!pending) {
+    pending = decodeTournament(hash);
+    decoded.set(hash, pending);
+  }
+  return pending;
+}
 
 function subscribeHash(onChange: () => void) {
   window.addEventListener('hashchange', onChange);
@@ -66,7 +81,7 @@ function findMe(round: SharedRound, meIndex: number) {
   return null;
 }
 
-export default function RoundPage() {
+function RoundContent() {
   // null on the server, a (possibly empty) string once the client has it
   const hash = useSyncExternalStore(
     subscribeHash,
@@ -75,10 +90,8 @@ export default function RoundPage() {
   );
   const me = useSyncExternalStore(subscribeMe, readMe, () => null);
 
-  const data: SharedTournament | null = useMemo(() => {
-    if (!hash) return null;
-    return decodeTournament(hash.replace(/^#/, ''));
-  }, [hash]);
+  // Server render has no hash yet — resolve to nothing rather than decoding
+  const data: SharedTournament | null = use(hash ? decodeCached(hash.replace(/^#/, '')) : NOTHING);
 
   const everyone = useMemo(() => {
     if (!data) return [];
@@ -244,5 +257,13 @@ export default function RoundPage() {
         </footer>
       </div>
     </div>
+  );
+}
+
+export default function RoundPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#070710]" />}>
+      <RoundContent />
+    </Suspense>
   );
 }

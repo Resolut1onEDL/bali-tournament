@@ -21,21 +21,21 @@ export function ShareLinks({ rounds, players, discordUrl, onDiscordUrlChange }: 
   const regular = rounds.filter(r => !r.isFinal);
   const final = rounds.find(r => r.isFinal);
 
-  function buildLink(selected: Round[]): string {
+  async function buildLink(selected: Round[]): Promise<string> {
     const nameById = new Map(players.map(p => [p.id, p.name]));
     const benchedNames = selected.map(round =>
       (round.benchedPlayerIds ?? [])
         .map(id => nameById.get(id))
         .filter((name): name is string => Boolean(name)),
     );
-    const encoded = encodeTournament(
+    const encoded = await encodeTournament(
       packTournament(selected, benchedNames, discordUrl.trim() || undefined),
     );
     return `${window.location.origin}/round#${encoded}`;
   }
 
   async function copy(selected: Round[], key: string) {
-    const link = buildLink(selected);
+    const link = await buildLink(selected);
     try {
       await navigator.clipboard.writeText(link);
     } catch {

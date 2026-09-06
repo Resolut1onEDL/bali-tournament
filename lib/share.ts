@@ -80,26 +80,50 @@ export function packTournament(
   };
 }
 
-function toBase64Url(text: string): string {
-  const bytes = new TextEncoder().encode(text);
+function bytesToBase64Url(bytes: Uint8Array): string {
   let binary = '';
   for (const byte of bytes) binary += String.fromCharCode(byte);
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-function fromBase64Url(encoded: string): string {
+function base64UrlToBytes(encoded: string): Uint8Array {
   const binary = atob(encoded.replace(/-/g, '+').replace(/_/g, '/'));
-  const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
-  return new TextDecoder().decode(bytes);
+  return Uint8Array.from(binary, c => c.charCodeAt(0));
 }
 
-export function encodeTournament(data: SharedTournament): string {
-  return toBase64Url(JSON.stringify(data));
+// Deflate cuts the link roughly threefold — the JSON is mostly repeated
+// structure. Browsers without CompressionStream fall back to plain base64,
+// which is longer but still works; the prefix says which one it is.
+const DEFLATED = 'z';
+const PLAIN = 'j';
+
+async function deflate(bytes: Uint8Array): Promise<Uint8Array | null> {
+  if (typeof CompressionStream === 'undefined') return null;
+  const stream = new Blob([bytes as BlobPart]).stream()
+    .pipeThrough(new CompressionStream('deflate-raw'));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
-export function decodeTournament(encoded: string): SharedTournament | null {
+async function inflate(bytes: Uint8Array): Promise<Uint8Array> {
+  const stream = new Blob([bytes as BlobPart]).stream()
+    .pipeThrough(new DecompressionStream('deflate-raw'));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+export async function encodeTournament(data: SharedTournament): Promise<string> {
+  const raw = new TextEncoder().encode(JSON.stringify(data));
+  const compressed = await deflate(raw);
+  return compressed && compressed.length < raw.length
+    ? DEFLATED + bytesToBase64Url(compressed)
+    : PLAIN + bytesToBase64Url(raw);
+}
+
+export async function decodeTournament(encoded: string): Promise<SharedTournament | null> {
   try {
-    const parsed = JSON.parse(fromBase64Url(encoded));
+    const marker = encoded[0];
+    const body = base64UrlToBytes(encoded.slice(1));
+    const json = new TextDecoder().decode(marker === DEFLATED ? await inflate(body) : body);
+    const parsed = JSON.parse(json);
     if (!parsed || !Array.isArray(parsed.r) || !Array.isArray(parsed.p)) return null;
     return parsed as SharedTournament;
   } catch {
