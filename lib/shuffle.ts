@@ -41,46 +41,83 @@ function makeMatch(team1: Team, team2: Team): Match {
 }
 
 // ── Position Assignment ──
-// Assign positions to a group of 5 players, covering all 5 roles as best as possible
+// Hand out the five roles inside a team. The greedy "least flexible first" pass
+// this replaced could park a player on a role he never picked while a valid
+// arrangement existed, so every permutation is scored instead — 120 of them for
+// five players, which is nothing.
 
-function assignPositionsToTeam(players: Player[]): Player[] {
-  const result: Player[] = [];
-  const taken = new Set<number>(); // position indices taken
+const ALL_POSITIONS: Position[] = [1, 2, 3, 4, 5];
 
-  // Sort by flexibility: least flexible first
-  const sorted = [...players].sort((a, b) => a.positions.length - b.positions.length);
+// Cost of putting a player on a role: their own order of preference, or a heavy
+// penalty for a role they never asked for. Resolut1on is the draw of the event,
+// so pushing him off his roles costs more than moving anyone else.
+const OFF_ROLE_COST = 100;
+const RESOLUT1ON_OFF_ROLE_COST = 400;
 
-  // Pass 1: assign players to their preferred position if available
-  for (const p of sorted) {
-    let assigned = false;
-    for (const pos of p.positions) {
-      if (!taken.has(pos)) {
-        result.push({ ...p, assignedPosition: pos });
-        taken.add(pos);
-        assigned = true;
-        break;
+function roleCost(player: Player, position: Position): number {
+  const preference = player.positions.indexOf(position);
+  if (preference >= 0) return preference;
+  return player.isResolut1on ? RESOLUT1ON_OFF_ROLE_COST : OFF_ROLE_COST;
+}
+
+function permutations<T>(items: T[]): T[][] {
+  if (items.length <= 1) return [items];
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i++) {
+    const rest = [...items.slice(0, i), ...items.slice(i + 1)];
+    for (const tail of permutations(rest)) out.push([items[i], ...tail]);
+  }
+  return out;
+}
+
+// How many of a team's players cannot get any role they picked. Kuhn's matching
+// on the players-to-roles graph — cheap enough to score every shuffle candidate,
+// unlike building the team and trying all permutations.
+export function offRoleCount(players: Player[]): number {
+  const roleTakenBy = new Map<Position, number>();
+
+  function seat(playerIndex: number, visited: Set<Position>): boolean {
+    for (const position of players[playerIndex].positions) {
+      if (visited.has(position)) continue;
+      visited.add(position);
+      const holder = roleTakenBy.get(position);
+      if (holder === undefined || seat(holder, visited)) {
+        roleTakenBy.set(position, playerIndex);
+        return true;
       }
     }
-    if (!assigned) {
-      result.push(p); // will be assigned in pass 2
+    return false;
+  }
+
+  let seated = 0;
+  for (let i = 0; i < players.length; i++) {
+    if (seat(i, new Set())) seated++;
+  }
+  return players.length - seated;
+}
+
+function assignPositionsToTeam(players: Player[]): Player[] {
+  if (players.length !== ALL_POSITIONS.length) {
+    // Not a full team — fall back to each player's first choice
+    return players.map(p => ({ ...p, assignedPosition: p.positions[0] }));
+  }
+
+  let bestCost = Infinity;
+  let best: Position[] = ALL_POSITIONS;
+
+  for (const layout of permutations(ALL_POSITIONS)) {
+    let cost = 0;
+    for (let i = 0; i < players.length; i++) {
+      cost += roleCost(players[i], layout[i]);
+      if (cost >= bestCost) break;
+    }
+    if (cost < bestCost) {
+      bestCost = cost;
+      best = layout;
     }
   }
 
-  // Pass 2: assign remaining players to any open position
-  const allPositions: Position[] = [1, 2, 3, 4, 5];
-  for (let i = 0; i < result.length; i++) {
-    if (result[i].assignedPosition) continue;
-    const open = allPositions.find(pos => !taken.has(pos));
-    if (open) {
-      result[i] = { ...result[i], assignedPosition: open };
-      taken.add(open);
-    } else {
-      // All 5 taken — fallback to first preferred
-      result[i] = { ...result[i], assignedPosition: result[i].positions[0] };
-    }
-  }
-
-  return result;
+  return players.map((player, i) => ({ ...player, assignedPosition: best[i] }));
 }
 
 // ── PC Assignment ──
@@ -168,6 +205,9 @@ function benchPenalty(benched: Player[], benchCounts: Map<string, number>): numb
 // but expensive later: fair rotation brings them all back in the same round,
 // and that round cannot be balanced at all.
 const BENCH_SKEW_WEIGHT = 3;
+
+// A player stuck on a role he never picked is worth about 250 MMR of imbalance
+const OFF_ROLE_PENALTY = 500;
 
 function benchSkewPenalty(benched: Player[], rosterAverage: number): number {
   if (benched.length === 0) return 0;
@@ -316,12 +356,18 @@ export function generateRound(
 
     // Score: MMR balance + opponent variety penalty + bench fairness penalty
     const repeatOpponentCount = selectedOpponents.filter(p => previousOpponentIds.has(p.id)).length;
+    const offRole =
+      offRoleCount([resolut1on, ...teammates]) +
+      offRoleCount(selectedOpponents) +
+      (match2 ? offRoleCount(match2.team1.players) + offRoleCount(match2.team2.players) : 0);
+
     const score =
       match1.matchMMRDiff * 2 +
       (match2?.matchMMRDiff ?? 0) +
       repeatOpponentCount * 150 +
       benchPenalty(benched, benchCounts) +
-      benchSkewPenalty(benched, rosterAverage);
+      benchSkewPenalty(benched, rosterAverage) +
+      offRole * OFF_ROLE_PENALTY;
 
     if (score < bestScore) {
       bestScore = score;
@@ -473,6 +519,7 @@ export function generateAllRegularRounds(
       const teammateIds = new Set(teammates.map(p => p.id));
       const pool = others.filter(p => !teammateIds.has(p.id));
       const resTeamAverage = avgMMR([resolut1on, ...teammates]);
+      const resTeamOffRole = offRoleCount([resolut1on, ...teammates]);
 
       // Only numbers here — teams are built once, for the winning plan
       let bestRoundScore = Infinity;
@@ -492,7 +539,8 @@ export function generateAllRegularRounds(
         const score =
           diff * 2 +
           benchPenalty(benched, benchCounts) +
-          benchSkewPenalty(benched, rosterAverage);
+          benchSkewPenalty(benched, rosterAverage) +
+          (resTeamOffRole + offRoleCount(opponents)) * OFF_ROLE_PENALTY;
 
         if (score < bestRoundScore) {
           bestRoundScore = score;
